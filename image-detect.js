@@ -60,25 +60,25 @@
 		const ctx = canvas.getContext("2d", { willReadFrequently: true });
 		ctx.drawImage(img, 0, 0, size, size);
 		const data = ctx.getImageData(0, 0, size, size).data;
-		const gray = [];
+		const gray = new Array(data.length / 4);
 		let sum = 0;
-		for (let i = 0; i < data.length; i += 4) {
+		for (let i = 0, pixelIndex = 0; i < data.length; i += 4, pixelIndex += 1) {
 			const value = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
-			gray.push(value);
+			gray[pixelIndex] = value;
 			sum += value;
 		}
 
 		const avg = sum / gray.length;
-		let bits = "";
+		const bits = new Array(gray.length);
 		for (let i = 0; i < gray.length; i += 1) {
-			bits += gray[i] >= avg ? "1" : "0";
+			bits[i] = gray[i] >= avg ? "1" : "0";
 		}
 
-		let hex = "";
+		const hex = [];
 		for (let i = 0; i < bits.length; i += 4) {
-			hex += Number.parseInt(bits.slice(i, i + 4), 2).toString(16);
+			hex.push(Number.parseInt(bits.slice(i, i + 4).join(""), 2).toString(16));
 		}
-		return hex;
+		return hex.join("");
 	}
 
 	function knownBoardCodeFromImage(img, modeKey) {
