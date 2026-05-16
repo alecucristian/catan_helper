@@ -1,0 +1,308 @@
+/* Catan Board Randomizer styles */
+:root {
+	--bg: #f4f1e8;
+	--panel: #fcfaf4;
+	--ink: #24211b;
+	--muted: #675f53;
+	--accent: #ab3f2f;
+	--sea: #4f8eaf;
+	--sea-deep: #2f6f93;
+	--wood: #2f6b3d;
+	--brick: #a14b2f;
+	--sheep: #80a84d;
+	--wheat: #d3a527;
+	--ore: #65758a;
+	--desert: #d4b27a;
+	--ring: #d9d1bf;
+	--hex-w: 100px;
+	--hex-h: 86px;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	min-height: 100vh;
+	color: var(--ink);
+	font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+	background:
+		radial-gradient(circle at 10% 15%, #efe8d8 0%, transparent 35%),
+		radial-gradient(circle at 90% 85%, #e6dbc4 0%, transparent 40%),
+		linear-gradient(145deg, #f8f3e9, #ece4d1);
+	padding: 1rem;
+}
+
+.app {
+	max-width: 1180px;
+	margin: 0 auto;
+	background: color-mix(in srgb, var(--panel) 94%, white);
+	border: 1px solid var(--ring);
+	border-radius: 16px;
+	box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+	overflow: hidden;
+}
+
+.top {
+	padding: 1rem 1.1rem;
+	border-bottom: 1px solid var(--ring);
+	display: grid;
+	gap: 0.75rem;
+	background: linear-gradient(180deg, #f8f4ea, #f3ecdf);
+}
+
+.title {
+	margin: 0;
+	font-size: clamp(1.25rem, 3.5vw, 1.9rem);
+	letter-spacing: 0.03em;
+}
+
+.controls {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.65rem;
+	align-items: center;
+}
+
+.control-group {
+	display: grid;
+	gap: 0.35rem;
+	min-width: min(100%, 620px);
+}
+
+.code-label {
+	font-size: 0.92rem;
+	font-weight: 700;
+}
+
+.code-help {
+	font-size: 0.84rem;
+	color: var(--muted);
+}
+
+input[type="text"],
+select,
+button {
+	font: inherit;
+	border-radius: 10px;
+	border: 1px solid #b9ad94;
+	padding: 0.55rem 0.8rem;
+	background: #fffdf8;
+	color: var(--ink);
+}
+
+input[type="text"] {
+	width: 100%;
+	padding: 0.75rem 0.9rem;
+}
+
+button {
+	background: linear-gradient(180deg, #ffffff, #f0e8d9);
+	cursor: pointer;
+	transition: transform 100ms ease, border-color 100ms ease;
+}
+
+button:hover {
+	border-color: #8e7961;
+	transform: translateY(-1px);
+}
+
+button:active {
+	transform: translateY(0);
+}
+
+.primary {
+	background: linear-gradient(180deg, #cc5947, #ab3f2f);
+	color: #fff;
+	border-color: #8e3529;
+}
+
+#status {
+	font-size: 0.95rem;
+	color: var(--muted);
+	min-height: 1.25rem;
+}
+
+.board-wrap {
+	position: relative;
+	padding: 1.3rem 0.7rem 1.5rem;
+	overflow-x: auto;
+}
+
+#board {
+	position: relative;
+	margin: 0 auto;
+	min-height: 350px;
+	border-radius: 34px;
+	border: 2px solid rgba(255, 255, 255, 0.55);
+	box-shadow:
+		inset 0 0 0 2px rgba(25, 66, 89, 0.18),
+		0 18px 30px rgba(0, 0, 0, 0.18);
+	background:
+		radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.25), transparent 45%),
+		radial-gradient(circle at 78% 80%, rgba(255, 255, 255, 0.2), transparent 40%),
+		linear-gradient(160deg, var(--sea), var(--sea-deep));
+	animation: boardIn 320ms ease;
+}
+
+.border-hex {
+	position: absolute;
+	width: var(--hex-w);
+	height: var(--hex-h);
+	clip-path: polygon(50% 1%, 96% 25%, 96% 75%, 50% 99%, 4% 75%, 4% 25%);
+	background: linear-gradient(180deg, rgba(110, 172, 206, 0.92), rgba(61, 122, 159, 0.96));
+	border: 2px solid rgba(220, 242, 248, 0.62);
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.32),
+		0 4px 8px rgba(0, 0, 0, 0.16);
+	opacity: 1;
+	z-index: 1;
+	display: grid;
+	place-items: center;
+}
+
+.harbor-border {
+	background: linear-gradient(180deg, rgba(232, 242, 247, 0.92), rgba(173, 207, 225, 0.96));
+	border-color: rgba(147, 178, 194, 0.78);
+}
+
+.harbor-border::after {
+	content: "";
+	position: absolute;
+	inset: 14px 18px;
+	clip-path: polygon(50% 1%, 96% 25%, 96% 75%, 50% 99%, 4% 75%, 4% 25%);
+	background: rgba(255, 252, 244, 0.88);
+	box-shadow: inset 0 0 0 1px rgba(115, 112, 103, 0.2);
+}
+
+.harbor-label {
+	position: relative;
+	z-index: 2;
+	font-size: 0.86rem;
+	font-weight: 800;
+	color: #4f3f29;
+	letter-spacing: 0.01em;
+	text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+	white-space: nowrap;
+	transform: none;
+}
+
+@keyframes boardIn {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.hex {
+	position: absolute;
+	width: var(--hex-w);
+	height: var(--hex-h);
+	clip-path: polygon(50% 1%, 96% 25%, 96% 75%, 50% 99%, 4% 75%, 4% 25%);
+	border: 2px solid rgba(0, 0, 0, 0.2);
+	display: grid;
+	place-items: center;
+	text-align: center;
+	padding: 0.2rem;
+	font-weight: 700;
+	transition: transform 120ms ease;
+	z-index: 2;
+}
+
+.hex:hover {
+	transform: translateY(-2px);
+}
+
+.hex .resource {
+	font-size: 0.86rem;
+	text-shadow: 0 1px 0 rgba(255, 255, 255, 0.28);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.hex .token {
+	margin-top: 0.32rem;
+	width: 33px;
+	height: 33px;
+	border-radius: 50%;
+	background: #faf4e6;
+	border: 1px solid rgba(0, 0, 0, 0.35);
+	display: grid;
+	place-items: center;
+	font-size: 1rem;
+	line-height: 1;
+	color: #2a241b;
+	box-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.12);
+}
+
+.hex .token.red {
+	color: #b52222;
+	font-weight: 800;
+}
+
+.hex.wood {
+	background: linear-gradient(180deg, color-mix(in srgb, var(--wood) 78%, #fff), var(--wood));
+	color: #f4fff5;
+}
+
+.hex.brick {
+	background: linear-gradient(180deg, color-mix(in srgb, var(--brick) 78%, #fff), var(--brick));
+	color: #fff5f2;
+}
+
+.hex.sheep {
+	background: linear-gradient(180deg, color-mix(in srgb, var(--sheep) 76%, #fff), var(--sheep));
+	color: #13320d;
+}
+
+.hex.wheat {
+	background: linear-gradient(180deg, color-mix(in srgb, var(--wheat) 76%, #fff), var(--wheat));
+	color: #3f2900;
+}
+
+.hex.ore {
+	background: linear-gradient(180deg, color-mix(in srgb, var(--ore) 76%, #fff), var(--ore));
+	color: #f6f9ff;
+}
+
+.hex.desert {
+	background: linear-gradient(180deg, color-mix(in srgb, var(--desert) 80%, #fff), var(--desert));
+	color: #4d3720;
+}
+
+.legend {
+	padding: 0.7rem 1rem 1rem;
+	border-top: 1px solid var(--ring);
+	display: flex;
+	gap: 1rem;
+	flex-wrap: wrap;
+	color: var(--muted);
+	font-size: 0.88rem;
+}
+
+@media (max-width: 740px) {
+	:root {
+		--hex-w: 82px;
+		--hex-h: 70px;
+	}
+
+	.hex .resource {
+		font-size: 0.72rem;
+	}
+
+	.hex .token {
+		width: 28px;
+		height: 28px;
+		font-size: 0.9rem;
+	}
+
+	.harbor-label {
+		font-size: 0.72rem;
+	}
+}
