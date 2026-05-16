@@ -23,6 +23,10 @@
 		ore: "O",
 		desert: "D"
 	};
+	const MODE_RESOURCE_COUNTS = {
+		four: { wood: 4, brick: 3, sheep: 4, wheat: 4, ore: 3, desert: 1 },
+		six: { wood: 6, brick: 5, sheep: 6, wheat: 6, ore: 5, desert: 2 }
+	};
 
 	function setStatus(msg, error) {
 		statusEl.textContent = msg;
@@ -128,7 +132,7 @@
 		};
 	}
 
-	function classifyResource(ctx, cx, cy, tileSize) {
+	function sampleTileHsv(ctx, cx, cy, tileSize) {
 		const ring = [
 			[-0.36, 0],
 			[0.36, 0],
@@ -150,6 +154,10 @@
 		}
 
 		const avg = averageHsv(hsvPoints);
+		return avg;
+	}
+
+	function classifyResourceFromHsv(avg) {
 		if (avg.s < 0.16) {
 			return "ore";
 		}
@@ -171,73 +179,56 @@
 		return "sheep";
 	}
 
-	function tokenPatch(sourceCtx, x, y, size, mode) {
-		const out = document.createElement("canvas");
-		out.width = 160;
-		out.height = 160;
-		const g = out.getContext("2d");
-		g.drawImage(sourceCtx.canvas, x, y, size, size, 0, 0, 160, 160);
-		const img = g.getImageData(0, 0, 160, 160);
-		const d = img.data;
-		for (let i = 0; i < d.length; i += 4) {
-			const r = d[i];
-			const gg = d[i + 1];
-			const b = d[i + 2];
-			const hsv = rgbToHsv(r, gg, b);
-			let ink = false;
-			if (mode === "dark") {
-				ink = hsv.v < 0.45 || (r > 120 && gg < 120 && b < 120);
-			} else {
-				ink = hsv.v < 0.58 || (r > 120 && gg < 120 && b < 120);
-			}
-			if (ink) {
-				d[i] = 0;
-				d[i + 1] = 0;
-				d[i + 2] = 0;
-			} else {
-				d[i] = 255;
-				d[i + 1] = 255;
-				d[i + 2] = 255;
-			}
-		}
-		g.putImageData(img, 0, 0);
-		return out;
+	function hueDelta(a, b) {
+		const d = Math.abs(a - b) % 360;
+		return d > 180 ? 360 - d : d;
 	}
 
-	async function ocrToken(worker, sourceCtx, cx, cy, tileSize) {
-		const tries = [
-			{ scale: 0.36, dx: 0, dy: 0, mode: "dark" },
-			{ scale: 0.34, dx: 0, dy: 0, mode: "normal" },
-			{ scale: 0.38, dx: -0.02, dy: 0, mode: "dark" },
-			{ scale: 0.38, dx: 0.02, dy: 0, mode: "dark" },
-			{ scale: 0.34, dx: 0, dy: -0.02, mode: "normal" }
-		];
-		const votes = new Map();
+	function resourceScore(avg, resource) {
+		const p = {
+			wood: { h: 108, s: 0.5, v: 0.42, wh: 0.04, ws: 1.8, wv: 1.6 },
+			brick: { h: 12, s: 0.55, v: 0.52, wh: 0.045, ws: 1.5, wv: 1.2 },
+			sheep: { h: 104, s: 0.42, v: 0.72, wh: 0.04, ws: 1.3, wv: 1.4 },
+			wheat: { h: 50, s: 0.52, v: 0.72, wh: 0.045, ws: 1.4, wv: 1.3 },
+			ore: { h: 0, s: 0.11, v: 0.53, wh: 0.0, ws: 3.2, wv: 1.2 },
+			desert: { h: 42, s: 0.24, v: 0.78, wh: 0.05, ws: 1.2, wv: 1.0 }
+		}[resource];
+		const dh = p.wh === 0 ? 0 : hueDelta(avg.h, p.h) * p.wh;
+		const ds = (avg.s - p.s) * p.ws;
+		const dv = (avg.v - p.v) * p.wv;
+		return -(dh * dh + ds * ds + dv * dv);
+	}
 
-		for (let i = 0; i < tries.length; i += 1) {
-			const t = tries[i];
-			const size = Math.max(34, Math.floor(tileSize * t.scale));
-			const px = Math.max(0, Math.floor(cx + t.dx * tileSize - size / 2));
-			const py = Math.max(0, Math.floor(cy + t.dy * tileSize - size / 2));
-			const patch = tokenPatch(sourceCtx, px, py, size, t.mode);
-			const result = await worker.recognize(patch);
-			const text = (result.data.text || "").replace(/\s+/g, "");
-			const match = text.match(/(10|11|12|[2-9])/);
-			if (match) {
-				const token = Number.parseInt(match[1], 10);
-				if (token >= 2 && token <= 12 && token !== 7) {
-					votes.set(token, (votes.get(token) || 0) + 1);
+	function normalizeResources(tileInfo, modeKey) {
+		const target = MODE_RESOURCE_COUNTS[modeKey] || MODE_RESOURCE_COUNTS.four;
+		const remaining = new Map(Object.entries(target).map(([k, v]) => [k, v]));
+		const assigned = new Array(tileInfo.length).fill("sheep");
+		const unassigned = new Set(tileInfo.map((_, idx) => idx));
+
+		while (unassigned.size > 0) {
+			let best = null;
+			remaining.forEach((count, resource) => {
+				if (count <= 0) {
+					return;
 				}
+				unassigned.forEach((idx) => {
+					const score = resourceScore(tileInfo[idx].avg, resource);
+					if (!best || score > best.score) {
+						best = { idx, resource, score };
+					}
+				});
+			});
+			if (!best) {
+				break;
 			}
+			assigned[best.idx] = best.resource;
+			remaining.set(best.resource, (remaining.get(best.resource) || 0) - 1);
+			unassigned.delete(best.idx);
 		}
 
-		if (!votes.size) {
-			return null;
-		}
-
-		const best = [...votes.entries()].sort((a, b) => b[1] - a[1])[0];
-		return best[0];
+		return assigned;
 	}
+
 
 	function harborSlotCenters(bounds) {
 		const slotCounts = [3, 3, 3, 3, 3, 3];
@@ -354,40 +345,26 @@
 		const centers = tileCenters(rows);
 		const tileScale = Math.min(bounds.w / Math.max.apply(null, rows), bounds.h / rows.length);
 
-		if (!window.Tesseract) {
-			throw new Error("OCR library not available. Reload and try again.");
+		const tileInfo = [];
+		for (let i = 0; i < centers.length; i += 1) {
+			const p = centers[i];
+			const cx = Math.floor(bounds.x + p.x * bounds.w);
+			const cy = Math.floor(bounds.y + p.y * bounds.h);
+			const avg = sampleTileHsv(ctx, cx, cy, tileScale);
+			tileInfo.push({
+				avg,
+				resourceGuess: classifyResourceFromHsv(avg)
+			});
 		}
 
-		const worker = await window.Tesseract.createWorker("eng");
-		await worker.setParameters({
-			tessedit_char_whitelist: "0123456789",
-			tessedit_pageseg_mode: "8",
-			preserve_interword_spaces: "0"
-		});
-
-		try {
-			const tokens = [];
-			for (let i = 0; i < centers.length; i += 1) {
-				const p = centers[i];
-				const cx = Math.floor(bounds.x + p.x * bounds.w);
-				const cy = Math.floor(bounds.y + p.y * bounds.h);
-				const resource = classifyResource(ctx, cx, cy, tileScale);
-				let token = await ocrToken(worker, ctx, cx, cy, tileScale);
-				if (resource === "desert") {
-					token = null;
-				}
-				if (resource !== "desert" && token === null) {
-					token = 5;
-				}
-				const letter = RESOURCE_LETTERS[resource] || "S";
-				tokens.push(letter + (token === null ? "" : String(token)));
-			}
-
-			const harborCode = modeKey === "four" ? harborCodeFromImage(ctx, bounds) : "";
-			return tokens.join(" ") + (harborCode ? " P" + harborCode : "");
-		} finally {
-			await worker.terminate();
+		const resources = normalizeResources(tileInfo, modeKey);
+		const tokens = [];
+		for (let i = 0; i < tileInfo.length; i += 1) {
+			const letter = RESOURCE_LETTERS[resources[i]] || "S";
+			tokens.push(letter);
 		}
+
+		return tokens.join(" ");
 	}
 
 	detectBtn.addEventListener("click", () => {
