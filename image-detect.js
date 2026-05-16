@@ -202,7 +202,7 @@
 	function normalizeResources(tileInfo, modeKey) {
 		const target = MODE_RESOURCE_COUNTS[modeKey] || MODE_RESOURCE_COUNTS.four;
 		const remaining = new Map(Object.entries(target).map(([k, v]) => [k, v]));
-		const assigned = new Array(tileInfo.length).fill("sheep");
+		const assigned = new Array(tileInfo.length).fill(null);
 		const unassigned = new Set(tileInfo.map((_, idx) => idx));
 
 		while (unassigned.size > 0) {
@@ -219,7 +219,7 @@
 				});
 			});
 			if (!best) {
-				break;
+				throw new Error("Could not normalize image-detected resources.");
 			}
 			assigned[best.idx] = best.resource;
 			remaining.set(best.resource, (remaining.get(best.resource) || 0) - 1);
