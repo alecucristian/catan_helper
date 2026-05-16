@@ -15,6 +15,7 @@ A browser-based Settlers of Catan board randomizer with support for:
 - Full board randomization (terrain, numbers, harbors)
 - Reshuffle numbers only
 - Board code textbox for partial or full layouts
+- Image detection from screenshots (terrain import; numbers/harbors are regenerated)
 - Responsive UI for desktop and mobile
 - Accessibility basics (live status updates, labeled controls)
 
