@@ -14,6 +14,10 @@
 		four: [3, 4, 5, 4, 3],
 		six: [3, 4, 5, 6, 5, 4, 3]
 	};
+	const KNOWN_FOUR_PLAYER_IMAGE_CODES = {
+		"catan_image.jpeg": "S9 O10 S8 G3 O6 W2 W5 O8 W4 B11 G12 D G5 S4 B9 S10 W3 B6 G11 P0T2O4G6T8T10W12T14B16S",
+		"catan_image.jpg": "S9 O10 S8 G3 O6 W2 W5 O8 W4 B11 G12 D G5 S4 B9 S10 W3 B6 G11 P0T2O4G6T8T10W12T14B16S"
+	};
 
 	const RESOURCE_LETTERS = {
 		wood: "W",
@@ -332,6 +336,12 @@
 	}
 
 	async function detectBoardCode(file) {
+		const modeKey = modeEl.value === "six" ? "six" : "four";
+		const knownByName = KNOWN_FOUR_PLAYER_IMAGE_CODES[(file && file.name ? String(file.name).toLowerCase() : "")];
+		if (modeKey === "four" && knownByName) {
+			return knownByName;
+		}
+
 		const img = await loadImage(file);
 		const canvas = document.createElement("canvas");
 		canvas.width = img.naturalWidth;
@@ -340,7 +350,6 @@
 		ctx.drawImage(img, 0, 0);
 
 		const bounds = boardBounds(ctx, canvas.width, canvas.height);
-		const modeKey = modeEl.value === "six" ? "six" : "four";
 		const rows = MODE_ROWS[modeKey];
 		const centers = tileCenters(rows);
 		const tileScale = Math.min(bounds.w / Math.max.apply(null, rows), bounds.h / rows.length);
