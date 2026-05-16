@@ -15,7 +15,7 @@ A browser-based Settlers of Catan board randomizer with support for:
 - Full board randomization (terrain, numbers, harbors)
 - Reshuffle numbers only
 - Board code textbox for partial or full layouts
-- Image detection from screenshots (recognized reference screenshots preserve the full tile/number/harbor code; other images fall back to terrain import)
+- Image detection for screenshots and photos using board alignment, perspective normalization, terrain/token/harbor detectors, and a review flow for low-confidence fields
 - Responsive UI for desktop and mobile
 - Accessibility basics (live status updates, labeled controls)
 
@@ -93,6 +93,7 @@ Then open:
 2. Optionally type a board code like `O6 S4 W10`.
 3. Click `Generate Board`.
 4. Optional: click `Reshuffle Numbers Only` to keep terrain/harbors and only change tokens.
+5. Optional: click `Detect Code From Image`, upload a screenshot/photo, and review any low-confidence tiles, tokens, or harbors in the import review panel.
 
 ## Publish On GitHub (Checklist)
 
