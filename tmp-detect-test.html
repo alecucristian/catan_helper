@@ -1,0 +1,33 @@
+<!doctype html>
+<html><body>
+<iframe id="app" src="/index.html" style="width:1200px;height:2600px"></iframe>
+<pre id="result">pending</pre>
+<script>
+(async () => {
+  const iframe = document.getElementById('app');
+  await new Promise((resolve, reject) => {
+    iframe.onload = resolve;
+    iframe.onerror = reject;
+  });
+  const doc = iframe.contentDocument;
+  const res = document.getElementById('result');
+  try {
+    const response = await fetch('/catan_image.jpeg');
+    const blob = await response.blob();
+    const file = new File([blob], 'renamed.jpeg', { type: blob.type || 'image/jpeg' });
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    const input = doc.getElementById('boardImageInput');
+    Object.defineProperty(input, 'files', { configurable: true, value: dt.files });
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 2500));
+    res.textContent = JSON.stringify({
+      code: doc.getElementById('boardCode').value,
+      status: doc.getElementById('status').textContent
+    });
+  } catch (error) {
+    res.textContent = 'ERROR:' + error.stack;
+  }
+})();
+</script>
+</body></html>
