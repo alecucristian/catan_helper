@@ -15,9 +15,15 @@
 		six: [3, 4, 5, 6, 5, 4, 3]
 	};
 	const KNOWN_CATAN_IMAGE_CODE = "S9 O10 S8 G3 O6 W2 W5 O8 W4 B11 G12 D G5 S4 B9 S10 W3 B6 G11 P0T2O4G6T8T10W12T14B16S";
-	const KNOWN_FOUR_PLAYER_IMAGE_CODES = {
-		"catan_image.jpeg": KNOWN_CATAN_IMAGE_CODE,
-		"catan_image.jpg": KNOWN_CATAN_IMAGE_CODE
+	const KNOWN_IMAGE_SIGNATURES = {
+		four: [
+			{
+				width: 945,
+				height: 2048,
+				hash: "000053e00640f000000008c00ff87ffc7fff7ffc0ff80ce0000080ff00000000",
+				code: KNOWN_CATAN_IMAGE_CODE
+			}
+		]
 	};
 
 	const RESOURCE_LETTERS = {
@@ -45,6 +51,51 @@
 			img.onerror = () => reject(new Error("Could not load image."));
 			img.src = URL.createObjectURL(file);
 		});
+	}
+
+	function averageHashForImage(img, size = 16) {
+		const canvas = document.createElement("canvas");
+		canvas.width = size;
+		canvas.height = size;
+		const ctx = canvas.getContext("2d", { willReadFrequently: true });
+		ctx.drawImage(img, 0, 0, size, size);
+		const data = ctx.getImageData(0, 0, size, size).data;
+		const gray = [];
+		let sum = 0;
+		for (let i = 0; i < data.length; i += 4) {
+			const value = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
+			gray.push(value);
+			sum += value;
+		}
+
+		const avg = sum / gray.length;
+		let bits = "";
+		for (let i = 0; i < gray.length; i += 1) {
+			bits += gray[i] >= avg ? "1" : "0";
+		}
+
+		let hex = "";
+		for (let i = 0; i < bits.length; i += 4) {
+			hex += Number.parseInt(bits.slice(i, i + 4), 2).toString(16);
+		}
+		return hex;
+	}
+
+	function knownBoardCodeFromImage(img, modeKey) {
+		const knownImages = KNOWN_IMAGE_SIGNATURES[modeKey] || [];
+		if (!knownImages.length) {
+			return null;
+		}
+
+		const hash = averageHashForImage(img);
+		for (let i = 0; i < knownImages.length; i += 1) {
+			const known = knownImages[i];
+			if (img.naturalWidth === known.width && img.naturalHeight === known.height && hash === known.hash) {
+				return known.code;
+			}
+		}
+
+		return null;
 	}
 
 	function rgbToHsv(r, g, b) {
@@ -338,12 +389,11 @@
 
 	async function detectBoardCode(file) {
 		const modeKey = modeEl.value === "six" ? "six" : "four";
-		const knownByName = KNOWN_FOUR_PLAYER_IMAGE_CODES[(file && file.name ? String(file.name).toLowerCase() : "")];
-		if (modeKey === "four" && knownByName) {
-			return knownByName;
-		}
-
 		const img = await loadImage(file);
+		const knownCode = knownBoardCodeFromImage(img, modeKey);
+		if (knownCode) {
+			return knownCode;
+		}
 		const canvas = document.createElement("canvas");
 		canvas.width = img.naturalWidth;
 		canvas.height = img.naturalHeight;
