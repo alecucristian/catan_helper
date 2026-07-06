@@ -97,8 +97,19 @@ const modeEl = document.getElementById("mode");
 const codeEl = document.getElementById("boardCode");
 const generateEl = document.getElementById("generateBoard");
 const randomizeEl = document.getElementById("randomizeBoard");
-const tokensOnlyEl = document.getElementById("tokensOnly");
+const swapResourcesEl = document.getElementById("swapResources");
+const swapTokensEl = document.getElementById("swapTokens");
+const swapPortsEl = document.getElementById("swapPorts");
 const statusEl = document.getElementById("status");
+
+const playerSeatEl = document.getElementById("playerSeat");
+const startDraftBtn = document.getElementById("startDraftBtn");
+const undoDraftBtn = document.getElementById("undoDraftBtn");
+const resetDraftBtn = document.getElementById("resetDraftBtn");
+const recommendationsPanelEl = document.getElementById("recommendationsPanel");
+const recommendationsSummaryEl = document.getElementById("recommendationsSummary");
+const recommendationsListEl = document.getElementById("recommendationsList");
+const draftStatusTitleEl = document.getElementById("draftStatusTitle");
 
 let state = {
 	modeKey: "four",
@@ -108,6 +119,16 @@ let state = {
 	frameSlots: [],
 	ports: []
 };
+
+// Draft tracking state
+let draftActive = false;
+let draftSeat = 1; // User's seat: 1, 2, 3, or 4
+let draftStep = 0; // Index in draft order
+let draftPlacements = []; // Array of { interId, player }
+let draftBlockedIds = new Set(); // Intersections blocked by Catan distance rules
+
+let swapMode = null; // null | "resources" | "tokens" | "ports"
+let swapSelectedTileId = null;
 
 function shuffle(input) {
 	const arr = [...input];
@@ -276,7 +297,11 @@ function buildSpiralOrder(tiles, adjacency, rows) {
 		const ordered = sortClockwiseByCenter(ring, geometry.centers, centerX, centerY);
 		const start = ordered
 			.map((id, index) => ({ id, index, center: geometry.centers.get(id) }))
-			.sort((a, b) => (a.center.y - b.center.y) || (a.center.x - b.center.x))[0].index;
+			.sort((a, b) => {
+				const dy = a.center.y - b.center.y;
+				if (Math.abs(dy) > 40) return dy;
+				return a.center.x - b.center.x;
+			})[0].index;
 		const shifted = ordered.slice(start).concat(ordered.slice(0, start));
 		rings.push(shifted);
 		shifted.forEach((id) => remaining.delete(id));
@@ -332,7 +357,11 @@ function buildFrameSlots(boundary, centers, boardCenter, slotCount) {
 
 	const start = orderedOuter
 		.map((slot, idx) => ({ slot, idx }))
-		.sort((a, b) => (a.slot.y - b.slot.y) || (a.slot.x - b.slot.x))[0]?.idx || 0;
+		.sort((a, b) => {
+			const dy = a.slot.y - b.slot.y;
+			if (Math.abs(dy) > 40) return dy;
+			return a.slot.x - b.slot.x;
+		})[0]?.idx || 0;
 	orderedOuter = orderedOuter.slice(start).concat(orderedOuter.slice(0, start));
 
 	if (orderedOuter.length !== slotCount) {
@@ -872,6 +901,42 @@ function renderBoard() {
 			labelEl.textContent = port.label;
 			borderHex.appendChild(labelEl);
 		}
+
+		if (swapMode === "ports") {
+			if (swapSelectedTileId === "slot:" + slot.index) {
+				borderHex.classList.add("selected-for-swap");
+			}
+			borderHex.style.cursor = "pointer";
+			borderHex.addEventListener("click", () => {
+				if (swapSelectedTileId === null) {
+					swapSelectedTileId = "slot:" + slot.index;
+					renderBoard();
+				} else if (swapSelectedTileId === "slot:" + slot.index) {
+					swapSelectedTileId = null;
+					renderBoard();
+				} else if (swapSelectedTileId.startsWith("slot:")) {
+					const otherSlotIndex = parseInt(swapSelectedTileId.split(":")[1], 10);
+					const p1 = state.ports.find(p => p.slotIndex === otherSlotIndex);
+					const p2 = state.ports.find(p => p.slotIndex === slot.index);
+					
+					if (p1 && p2) {
+						const tmp = p1.label;
+						p1.label = p2.label;
+						p2.label = tmp;
+					} else if (p1 && !p2) {
+						p1.slotIndex = slot.index;
+					} else if (!p1 && p2) {
+						p2.slotIndex = otherSlotIndex;
+					}
+					
+					swapSelectedTileId = null;
+					codeEl.value = boardCodeFromTiles(state.tiles, state.spiral, state.ports);
+					renderBoard();
+				}
+			});
+		}
+
+		boardEl.appendChild(borderHex);
 	});
 
 	for (const tile of state.tiles) {
@@ -894,9 +959,42 @@ function renderBoard() {
 			el.appendChild(token);
 		}
 
+		if (swapMode !== null) {
+			if (swapSelectedTileId === tile.id) {
+				el.classList.add("selected-for-swap");
+			}
+			el.addEventListener("click", () => {
+				if (swapSelectedTileId === null) {
+					swapSelectedTileId = tile.id;
+					renderBoard();
+				} else if (swapSelectedTileId === tile.id) {
+					swapSelectedTileId = null;
+					renderBoard();
+				} else {
+					const t1 = state.tiles.find(t => t.id === swapSelectedTileId);
+					const t2 = tile;
+					if (swapMode === "resources") {
+						const tmp = t1.resource;
+						t1.resource = t2.resource;
+						t2.resource = tmp;
+					} else if (swapMode === "tokens") {
+						const tmp = t1.token;
+						t1.token = t2.token;
+						t2.token = tmp;
+					}
+					swapSelectedTileId = null;
+					codeEl.value = boardCodeFromTiles(state.tiles, state.spiral, state.ports);
+					renderBoard();
+				}
+			});
+		}
+
 		boardEl.appendChild(el);
 	}
 
+	if (draftActive) {
+		renderDraftOverlay();
+	}
 }
 
 function setStatus(message, isError = false) {
@@ -1169,13 +1267,653 @@ function updateHint() {
 		"Spiral order, left to right. Harbor section uses only letters/numbers after P, like: P1T3W5O. Example: O6 S4 W10 P1T3W5O (" + totalTiles + " tiles max for this mode).";
 }
 
+function setSwapMode(mode) {
+	swapMode = mode;
+	swapSelectedTileId = null;
+	swapResourcesEl.classList.toggle("swap-active", mode === "resources");
+	swapTokensEl.classList.toggle("swap-active", mode === "tokens");
+	if (swapPortsEl) swapPortsEl.classList.toggle("swap-active", mode === "ports");
+	
+	if (mode) {
+		setStatus("Swap mode active: Click a hex (or port) to select, then click another to swap their " + mode + ".");
+	} else {
+		setStatus("Swap mode disabled.");
+	}
+	renderBoard(); // re-render to clear any selection
+}
+
+swapResourcesEl.addEventListener("click", () => {
+	setSwapMode(swapMode === "resources" ? null : "resources");
+});
+
+swapTokensEl.addEventListener("click", () => {
+	setSwapMode(swapMode === "tokens" ? null : "tokens");
+});
+
+if (swapPortsEl) {
+	swapPortsEl.addEventListener("click", () => {
+		setSwapMode(swapMode === "ports" ? null : "ports");
+	});
+}
+
+function getIntersections() {
+	const mode = MODES[state.modeKey];
+	const geometry = tileGeometry(mode.rows, state.tiles);
+	const centers = geometry.centers;
+	const W = geometry.hexW;
+	const H = geometry.hexH;
+
+	const corners = [];
+
+	state.tiles.forEach((tile) => {
+		const center = centers.get(tile.id);
+		if (!center) return;
+
+		// 6 relative offsets for pointy-topped hex corners
+		const offsets = [
+			{ dx: 0, dy: -H / 2 },
+			{ dx: 0.46 * W, dy: -H / 4 },
+			{ dx: 0.46 * W, dy: H / 4 },
+			{ dx: 0, dy: H / 2 },
+			{ dx: -0.46 * W, dy: H / 4 },
+			{ dx: -0.46 * W, dy: -H / 4 }
+		];
+
+		offsets.forEach((offset) => {
+			corners.push({
+				x: center.x + offset.dx,
+				y: center.y + offset.dy,
+				tileId: tile.id,
+				resource: tile.resource,
+				token: tile.token
+			});
+		});
+	});
+
+	// Merge close corners
+	const uniqueIntersections = [];
+	const tolerance = 15; // px
+
+	corners.forEach((c) => {
+		let found = uniqueIntersections.find((ui) => {
+			const dx = ui.x - c.x;
+			const dy = ui.y - c.y;
+			return dx * dx + dy * dy < tolerance * tolerance;
+		});
+
+		if (found) {
+			if (!found.tiles.some(t => t.id === c.tileId)) {
+				found.tiles.push({
+					id: c.tileId,
+					resource: c.resource,
+					token: c.token
+				});
+			}
+		} else {
+			uniqueIntersections.push({
+				id: `inter_${uniqueIntersections.length}`,
+				x: c.x,
+				y: c.y,
+				tiles: [{
+					id: c.tileId,
+					resource: c.resource,
+					token: c.token
+				}]
+			});
+		}
+	});
+
+	return uniqueIntersections;
+}
+
+// Get Catan drafting order
+function getDraftOrder() {
+	const mode = state.modeKey === "six" ? "six" : "four";
+	if (mode === "six") {
+		return [1, 2, 3, 4, 5, 6, 6, 5, 4, 3, 2, 1];
+	}
+	return [1, 2, 3, 4, 4, 3, 2, 1];
+}
+
+// Check if two intersections are connected by an edge
+function isAdjacentIntersection(i1, i2, H) {
+	const dx = i1.x - i2.x;
+	const dy = i1.y - i2.y;
+	const dist = Math.sqrt(dx * dx + dy * dy);
+	return dist < H * 0.65;
+}
+
+// Calculate which intersections are blocked
+function recalculateBlockedIntersections(allInters, H) {
+	draftBlockedIds.clear();
+	draftPlacements.forEach((placement) => {
+		draftBlockedIds.add(placement.interId);
+		const inter = allInters.find(i => i.id === placement.interId);
+		if (inter) {
+			allInters.forEach((other) => {
+				if (isAdjacentIntersection(inter, other, H)) {
+					draftBlockedIds.add(other.id);
+				}
+			});
+		}
+	});
+}
+
+// Score a single intersection taking into account current blocked state
+function scoreDraftIntersection(inter, allInters, H, scarcityMultipliers) {
+	let rawPips = 0;
+	let weightedPips = 0;
+	const resources = new Set();
+	const adjacentTiles = [];
+	const tokens = [];
+
+	inter.tiles.forEach((tile) => {
+		if (tile.resource && tile.resource !== "desert") {
+			resources.add(tile.resource);
+			const token = tile.token;
+			if (token) {
+				const pipMap = {
+					2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 8: 5, 9: 4, 10: 3, 11: 2, 12: 1
+				};
+				const tilePips = pipMap[token] || 0;
+				rawPips += tilePips;
+				
+				const mult = scarcityMultipliers[tile.resource] || 1.0;
+				weightedPips += tilePips * mult;
+				
+				adjacentTiles.push({
+					resource: tile.resource,
+					token: token,
+					pips: tilePips
+				});
+				tokens.push(token);
+			} else {
+				adjacentTiles.push({
+					resource: tile.resource,
+					token: null,
+					pips: 0
+				});
+			}
+		}
+	});
+
+	const diversity = resources.size;
+	let score = weightedPips;
+
+	if (diversity > 1) {
+		score += (diversity - 1) * 1.0;
+	}
+
+	if (resources.has("wood") && resources.has("brick")) {
+		score += 1.5;
+	}
+	if (resources.has("wheat") && resources.has("ore")) {
+		score += 1.5;
+	}
+	if (resources.has("wheat") && resources.has("ore") && resources.has("sheep")) {
+		score += 1.0;
+	}
+
+	// 1. Roll Diversification
+	const uniqueTokens = new Set(tokens);
+	if (uniqueTokens.size === tokens.length && tokens.length > 0) {
+		score += 0.5; 
+	} else if (tokens.length - uniqueTokens.size > 0) {
+		score -= (tokens.length - uniqueTokens.size) * 0.5; 
+	}
+
+	// 2. Expansion Paths
+	let openPaths = 3;
+	allInters.forEach((other) => {
+		if (isAdjacentIntersection(inter, other, H)) {
+			if (draftBlockedIds.has(other.id)) {
+				openPaths--;
+			}
+		}
+	});
+	if (openPaths === 3) {
+		score += 0.5;
+	} else if (openPaths <= 1) {
+		score -= 1.0; 
+	}
+
+	// 3. Port proximity (scaled by matching resource production)
+	let adjacentPort = null;
+	const portBySlot = new Map(state.ports.map((port) => [port.slotIndex, port]));
+
+	state.frameSlots.forEach((slot) => {
+		const port = portBySlot.get(slot.index);
+		if (port) {
+			const dx = inter.x - slot.x;
+			const dy = inter.y - slot.y;
+			const dist = Math.sqrt(dx * dx + dy * dy);
+			if (dist < H * 0.6) {
+				adjacentPort = port;
+			}
+		}
+	});
+
+	if (adjacentPort) {
+		const portResource = adjacentPort.label.split(" ")[0];
+		if (resources.has(portResource)) {
+			let localPips = 0;
+			adjacentTiles.forEach(t => {
+				if (t.resource === portResource) {
+					localPips += t.pips;
+				}
+			});
+			score += localPips * 0.35;
+		} else if (adjacentPort.label === "3:1") {
+			score += 1.0; 
+		} else {
+			score += 0.5; 
+		}
+	}
+
+	const ownedResources = new Set();
+	draftPlacements.forEach((p) => {
+		if (p.player === draftSeat) {
+			const existingInter = allInters.find(i => i.id === p.interId);
+			if (existingInter) {
+				existingInter.tiles.forEach((tile) => {
+					if (tile.resource && tile.resource !== "desert") {
+						ownedResources.add(tile.resource);
+					}
+				});
+			}
+		}
+	});
+
+	if (ownedResources.size > 0) {
+		let newResourceCount = 0;
+		resources.forEach((res) => {
+			if (!ownedResources.has(res)) {
+				newResourceCount++;
+			}
+		});
+		score += newResourceCount * 2.5;
+	}
+
+	return {
+		id: inter.id,
+		x: inter.x,
+		y: inter.y,
+		score: score,
+		pips: rawPips,
+		diversity: diversity,
+		resources: Array.from(resources),
+		adjacentTiles: adjacentTiles.sort((a,b) => b.pips - a.pips),
+		port: adjacentPort ? adjacentPort.label : null
+	};
+}
+
+function getResourceProductionPips(spots, resource) {
+	let pips = 0;
+	spots.forEach(spot => {
+		spot.adjacentTiles.forEach(tile => {
+			if (tile.resource === resource) {
+				pips += tile.pips;
+			}
+		});
+	});
+	return pips;
+}
+
+function recommendPairs(scoredInters, allInters, H) {
+	const minDistance = H * 0.65;
+	const pairs = [];
+	
+	for (let i = 0; i < scoredInters.length; i++) {
+		const inter1 = scoredInters[i];
+		for (let j = i + 1; j < scoredInters.length; j++) {
+			const inter2 = scoredInters[j];
+			
+			// Check distance constraint
+			const dx = inter1.x - inter2.x;
+			const dy = inter1.y - inter2.y;
+			const dist = Math.sqrt(dx*dx + dy*dy);
+			if (dist < minDistance) {
+				continue;
+			}
+			
+			// Combined production pips
+			const combinedPips = inter1.pips + inter2.pips;
+			
+			// Combined resource set
+			const allResources = new Set([...inter1.resources, ...inter2.resources]);
+			const combinedDiversity = allResources.size;
+			
+			let pairScore = inter1.score + inter2.score;
+			
+			// 1. Resource coverage bonuses
+			if (combinedDiversity === 5) {
+				pairScore += 3.0; // Perfect coverage bonus
+			} else if (combinedDiversity === 4) {
+				pairScore += 1.5;
+			}
+			
+			// 2. Archetype synergies
+			const combinedPipsByResource = {};
+			["wood", "brick", "sheep", "wheat", "ore"].forEach(res => {
+				combinedPipsByResource[res] = getResourceProductionPips([inter1, inter2], res);
+			});
+
+			const OWS = (combinedPipsByResource["ore"] || 0) + (combinedPipsByResource["wheat"] || 0) + (combinedPipsByResource["sheep"] || 0);
+			const woodBrick = (combinedPipsByResource["wood"] || 0) + (combinedPipsByResource["brick"] || 0);
+			const wheatSheep = (combinedPipsByResource["wheat"] || 0) + (combinedPipsByResource["sheep"] || 0);
+
+			if (OWS >= 12) {
+				pairScore += 2.0; // Ore-Wheat-Sheep strategy synergy
+			}
+			if (woodBrick >= 8 && wheatSheep >= 6) {
+				pairScore += 1.5; // Road Builder strategy synergy
+			}
+
+			pairs.push({
+				spot1: inter1,
+				spot2: inter2,
+				score: pairScore,
+				pips: combinedPips,
+				diversity: combinedDiversity,
+				resources: Array.from(allResources)
+			});
+		}
+	}
+	
+	return pairs.sort((a,b) => b.score - a.score).slice(0, 5);
+}
+
+// Get the placement order number (e.g. "1st placement", "2nd placement") for a player's turn
+function getPlacementNumber(player, stepIndex, draftOrder) {
+	let count = 0;
+	for (let i = 0; i <= stepIndex; i++) {
+		if (draftOrder[i] === player) {
+			count++;
+		}
+	}
+	return count === 1 ? "1st" : "2nd";
+}
+
+// Start draft placement assistant
+function startPlacementDraft() {
+	if (!state.tiles.length) {
+		setStatus("No board generated yet. Please generate or randomize first.", true);
+		return;
+	}
+	
+	draftActive = true;
+	draftSeat = parseInt(playerSeatEl.value, 10);
+	draftStep = 0;
+	draftPlacements = [];
+	draftBlockedIds.clear();
+	
+	undoDraftBtn.disabled = false;
+	resetDraftBtn.disabled = false;
+	recommendationsPanelEl.hidden = false;
+	
+	renderBoard();
+}
+
+function resetDraft() {
+	draftActive = false;
+	draftStep = 0;
+	draftPlacements = [];
+	draftBlockedIds.clear();
+	
+	undoDraftBtn.disabled = true;
+	resetDraftBtn.disabled = true;
+	recommendationsPanelEl.hidden = true;
+	
+	renderBoard();
+}
+
+function undoDraft() {
+	if (draftPlacements.length > 0) {
+		draftPlacements.pop();
+		draftStep = Math.max(0, draftStep - 1);
+		renderBoard();
+	}
+}
+
+// Main logic to render draft dots and status panel
+function renderDraftOverlay() {
+	const allInters = getIntersections();
+	const mode = MODES[state.modeKey];
+	const geometry = tileGeometry(mode.rows, state.tiles);
+	const H = geometry.hexH;
+	const W = geometry.hexW;
+	const seaPadding = Math.round(W * 0.95);
+
+	recalculateBlockedIntersections(allInters, H);
+
+	// Compute global scarcity multipliers
+	const pipMap = { 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 8: 5, 9: 4, 10: 3, 11: 2, 12: 1 };
+	const globalResourcePips = { wood: 0, brick: 0, sheep: 0, wheat: 0, ore: 0 };
+	state.tiles.forEach(tile => {
+		if (tile.resource && globalResourcePips[tile.resource] !== undefined) {
+			globalResourcePips[tile.resource] += pipMap[tile.token] || 0;
+		}
+	});
+	const averagePips = Object.values(globalResourcePips).reduce((a, b) => a + b, 0) / 5;
+	const scarcityMultipliers = {};
+	Object.keys(globalResourcePips).forEach(res => {
+		const pips = globalResourcePips[res];
+		scarcityMultipliers[res] = pips > 0 ? Math.min(2.0, Math.max(0.5, averagePips / pips)) : 1.0;
+	});
+
+	const draftOrder = getDraftOrder();
+	
+	// Check if draft is finished
+	if (draftStep >= draftOrder.length) {
+		draftStatusTitleEl.textContent = "Draft Complete!";
+		recommendationsSummaryEl.textContent = "All starting settlements placed.";
+		recommendationsListEl.innerHTML = "";
+		
+		// Draw final placements
+		allInters.forEach((inter) => {
+			const placement = draftPlacements.find(p => p.interId === inter.id);
+			if (placement) {
+				drawClaimedDot(inter, placement.player);
+			}
+		});
+		return;
+	}
+
+	const currentPlayer = draftOrder[draftStep];
+	const placementNum = getPlacementNumber(currentPlayer, draftStep, draftOrder);
+	const isUserTurn = currentPlayer === draftSeat;
+
+	draftStatusTitleEl.textContent = `Draft Turn ${draftStep + 1}/${draftOrder.length}`;
+	
+	// Create interactive dots for all intersections
+	allInters.forEach((inter) => {
+		const placement = draftPlacements.find(p => p.interId === inter.id);
+		if (placement) {
+			drawClaimedDot(inter, placement.player);
+			return;
+		}
+
+		if (draftBlockedIds.has(inter.id)) {
+			drawBlockedDot(inter);
+			return;
+		}
+
+		// Spot is free!
+		drawClickableDot(inter);
+	});
+
+	if (isUserTurn) {
+		const unblocked = allInters.filter(i => !draftBlockedIds.has(i.id));
+		const scored = unblocked.map(i => scoreDraftIntersection(i, allInters, H, scarcityMultipliers));
+		scored.sort((a, b) => b.score - a.score);
+
+		if (draftSeat === 4 && draftStep === 3) {
+			// Player 4 wrap: recommend complementary pairs!
+			const pairs = recommendPairs(scored, allInters, H);
+			recommendationsSummaryEl.textContent = `Your Turn (Player 4) - Placing your first settlement. Recommending best complementary PAIRS for your back-to-back turn.`;
+			
+			recommendationsListEl.innerHTML = "";
+			pairs.forEach((pair, idx) => {
+				const label = String.fromCharCode(65 + idx); // A, B, C, D, E
+				
+				// Highlight first pair on board
+				const dot1 = boardEl.querySelector(`.intersection-dot[data-id="${pair.spot1.id}"]`);
+				const dot2 = boardEl.querySelector(`.intersection-dot[data-id="${pair.spot2.id}"]`);
+				
+				if (dot1 && idx === 0) { dot1.classList.add("recommended"); dot1.textContent = `${label}1`; }
+				if (dot2 && idx === 0) { dot2.classList.add("recommended"); dot2.textContent = `${label}2`; }
+
+				// Render list item
+				const item = document.createElement("div");
+				item.className = "import-review-item";
+				item.style.cursor = "pointer";
+				
+				const header = document.createElement("div");
+				header.className = "import-review-label";
+				header.textContent = `Pair ${label} (Combined Score: ${pair.score.toFixed(1)}, Pips: ${pair.pips})`;
+				
+				const detail = document.createElement("div");
+				detail.className = "import-review-meta";
+				detail.innerHTML = `
+					<strong>Spot 1:</strong> ${spotText(pair.spot1)}<br>
+					<strong>Spot 2:</strong> ${spotText(pair.spot2)}<br>
+					<strong>Resources:</strong> ${pair.resources.join(", ")}
+				`;
+				item.appendChild(header);
+				item.appendChild(detail);
+				recommendationsListEl.appendChild(item);
+
+				item.addEventListener("mouseenter", () => {
+					const d1 = boardEl.querySelector(`.intersection-dot[data-id="${pair.spot1.id}"]`);
+					const d2 = boardEl.querySelector(`.intersection-dot[data-id="${pair.spot2.id}"]`);
+					if (d1) d1.classList.add("highlighted");
+					if (d2) d2.classList.add("highlighted");
+				});
+				item.addEventListener("mouseleave", () => {
+					const d1 = boardEl.querySelector(`.intersection-dot[data-id="${pair.spot1.id}"]`);
+					const d2 = boardEl.querySelector(`.intersection-dot[data-id="${pair.spot2.id}"]`);
+					if (d1) d1.classList.remove("highlighted");
+					if (d2) d2.classList.remove("highlighted");
+				});
+			});
+		} else {
+			// Regular individual spot recommendations
+			const topRecommendations = scored.slice(0, 3);
+			recommendationsSummaryEl.textContent = `Your Turn (Player ${draftSeat}) - Placing your ${placementNum} settlement! Best positions recommended.`;
+			
+			recommendationsListEl.innerHTML = "";
+			topRecommendations.forEach((spot, idx) => {
+				const rank = idx + 1;
+				
+				const dot = boardEl.querySelector(`.intersection-dot[data-id="${spot.id}"]`);
+				if (dot) {
+					dot.classList.add("recommended");
+					dot.textContent = String(rank);
+				}
+
+				const item = document.createElement("div");
+				item.className = "import-review-item";
+				item.style.cursor = "pointer";
+				
+				const header = document.createElement("div");
+				header.className = "import-review-label";
+				header.textContent = `Choice #${rank} (Score: ${spot.score.toFixed(1)}, Pips: ${spot.pips})`;
+				
+				const detail = document.createElement("div");
+				detail.className = "import-review-meta";
+				detail.innerHTML = `
+					<strong>Resources:</strong> ${spotText(spot)}<br>
+					<strong>Port:</strong> ${spot.port || "None"}
+				`;
+				item.appendChild(header);
+				item.appendChild(detail);
+				recommendationsListEl.appendChild(item);
+
+				item.addEventListener("mouseenter", () => {
+					if (dot) dot.classList.add("highlighted");
+				});
+				item.addEventListener("mouseleave", () => {
+					if (dot) dot.classList.remove("highlighted");
+				});
+			});
+
+			if (topRecommendations.length === 0) {
+				recommendationsSummaryEl.textContent = "No valid starting positions left!";
+			}
+		}
+	} else {
+		// Other player's turn
+		recommendationsSummaryEl.textContent = `Player ${currentPlayer}'s turn to place their ${placementNum} settlement. Click on the board to log their selection.`;
+		recommendationsListEl.innerHTML = `
+			<p class="import-review-empty">
+				Waiting for Player ${currentPlayer} to make a choice...<br>
+				Please watch where they place their settlement and click that corner on the screen to update the tracker.
+			</p>
+		`;
+	}
+
+	// Sub-renderers
+	function drawClaimedDot(inter, playerNum) {
+		const dot = document.createElement("div");
+		dot.className = `intersection-dot claimed player-${playerNum}`;
+		positionDot(dot, inter, 24);
+		dot.title = `Player ${playerNum}'s Settlement`;
+		boardEl.appendChild(dot);
+	}
+
+	function drawBlockedDot(inter) {
+		const dot = document.createElement("div");
+		dot.className = "intersection-dot blocked";
+		positionDot(dot, inter, 14);
+		boardEl.appendChild(dot);
+	}
+
+	function drawClickableDot(inter) {
+		const dot = document.createElement("div");
+		dot.className = "intersection-dot";
+		dot.setAttribute("data-id", inter.id);
+		positionDot(dot, inter, 20);
+		
+		dot.addEventListener("click", () => {
+			draftPlacements.push({ interId: inter.id, player: currentPlayer });
+			draftStep += 1;
+			renderBoard();
+		});
+
+		// Hover tooltips
+		dot.addEventListener("mouseenter", () => {
+			const spotStats = scoreDraftIntersection(inter, allInters, H);
+			setStatus(`Intersection: ${spotText(spotStats)} | Pips: ${spotStats.pips} | Port: ${spotStats.port || 'None'}`);
+		});
+		dot.addEventListener("mouseleave", () => {
+			setStatus("");
+		});
+
+		boardEl.appendChild(dot);
+	}
+
+	function positionDot(dot, inter, size) {
+		dot.style.left = inter.x + seaPadding - size / 2 + "px";
+		dot.style.top = inter.y + seaPadding - size / 2 + "px";
+	}
+
+	function spotText(spot) {
+		return spot.adjacentTiles.map(t => t.resource + (t.token ? ` ${t.token}` : '')).join(", ");
+	}
+}
+
+// Bind draft buttons
+startDraftBtn.addEventListener("click", startPlacementDraft);
+undoDraftBtn.addEventListener("click", undoDraft);
+resetDraftBtn.addEventListener("click", resetDraft);
+
 modeEl.addEventListener("change", () => {
 	updateHint();
 	applyBoardCode();
 });
 generateEl.addEventListener("click", applyBoardCode);
 randomizeEl.addEventListener("click", randomizeBoard);
-tokensOnlyEl.addEventListener("click", reshuffleTokensOnly);
+if (typeof tokensOnlyEl !== 'undefined' && tokensOnlyEl) tokensOnlyEl.addEventListener("click", reshuffleTokensOnly);
 codeEl.addEventListener("keydown", (event) => {
 	if (event.key === "Enter") {
 		event.preventDefault();

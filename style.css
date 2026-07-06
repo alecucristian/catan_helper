@@ -112,6 +112,12 @@ button:active {
 	transform: translateY(0);
 }
 
+.swap-btn.swap-active {
+	background: linear-gradient(180deg, #ffe780, #f2c733);
+	border-color: #c99300;
+	box-shadow: inset 0 2px 4px rgba(201, 147, 0, 0.4);
+}
+
 .primary {
 	background: linear-gradient(180deg, #cc5947, #ab3f2f);
 	color: #fff;
@@ -186,6 +192,41 @@ button:active {
 
 .import-review-select {
 	width: 100%;
+}
+
+.import-review-visual {
+	display: grid;
+	gap: 0.45rem;
+	margin: 0.65rem 0;
+	padding: 0.65rem;
+	border-radius: 10px;
+	border: 1px solid rgba(143, 122, 93, 0.2);
+	background: rgba(250, 247, 239, 0.85);
+	justify-items: center;
+}
+
+.import-review-visual-title {
+	font-size: 0.82rem;
+	font-weight: 700;
+	color: var(--muted);
+}
+
+.import-review-centers-image {
+	display: block;
+	width: min(100%, 960px);
+	max-width: 100%;
+	max-height: min(70vh, 760px);
+	height: auto;
+	object-fit: contain;
+	aspect-ratio: 1 / 1;
+	border-radius: 8px;
+	border: 1px solid rgba(43, 75, 98, 0.38);
+	box-shadow: 0 6px 14px rgba(22, 41, 59, 0.22);
+	background: #1e3f56;
+}
+
+.import-review-empty {
+	grid-column: 1 / -1;
 }
 
 .board-wrap {
@@ -310,6 +351,14 @@ button:active {
 	font-weight: 800;
 }
 
+.hex.selected-for-swap,
+.border-hex.selected-for-swap {
+	box-shadow: 0 0 0 6px #f2c733, 0 10px 15px rgba(0,0,0,0.4);
+	transform: translateY(-2px);
+	z-index: 10;
+	cursor: pointer;
+}
+
 .hex.wood {
 	background: linear-gradient(180deg, color-mix(in srgb, var(--wood) 78%, #fff), var(--wood));
 	color: #f4fff5;
@@ -350,6 +399,88 @@ button:active {
 	font-size: 0.88rem;
 }
 
+.intersection-dot {
+	position: absolute;
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	background: rgba(255, 255, 255, 0.45);
+	border: 2px solid rgba(255, 255, 255, 0.85);
+	box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+	cursor: pointer;
+	z-index: 5;
+	display: grid;
+	place-items: center;
+	font-size: 0.65rem;
+	font-weight: 800;
+	color: #24211b;
+	transition: all 120ms ease;
+}
+
+.intersection-dot:hover {
+	transform: scale(1.3);
+	background: rgba(255, 255, 255, 0.95);
+	box-shadow: 0 0 10px #f2c733, 0 4px 6px rgba(0,0,0,0.3);
+	z-index: 6;
+}
+
+.intersection-dot.recommended {
+	background: rgba(128, 255, 128, 0.75);
+	border-color: #2f6b3d;
+	box-shadow: 0 0 8px rgba(128, 255, 128, 0.9), 0 2px 4px rgba(0,0,0,0.3);
+	width: 24px;
+	height: 24px;
+	font-size: 0.75rem;
+}
+
+.intersection-dot.recommended:hover {
+	background: rgba(128, 255, 128, 0.95);
+	box-shadow: 0 0 15px #f2c733, 0 4px 6px rgba(0,0,0,0.3);
+}
+
+.intersection-dot.highlighted {
+	transform: scale(1.5) !important;
+	background: #ffe780 !important;
+	border-color: #c99300 !important;
+	box-shadow: 0 0 20px #ffe780, 0 6px 10px rgba(0,0,0,0.4) !important;
+	z-index: 7;
+}
+
+.intersection-dot.claimed {
+	width: 24px;
+	height: 24px;
+	clip-path: polygon(50% 0%, 100% 38%, 100% 100%, 0% 100%, 0% 38%);
+	border-radius: 0;
+	border: none;
+	cursor: default;
+	transform: scale(1.1);
+	z-index: 8;
+}
+
+.intersection-dot.claimed.player-1 { background: #ab3f2f; }
+.intersection-dot.claimed.player-2 { background: #2f6f93; }
+.intersection-dot.claimed.player-3 { background: #d3a527; }
+.intersection-dot.claimed.player-4 { background: #ffffff; box-shadow: inset 0 0 0 3px #24211b, 0 4px 6px rgba(0,0,0,0.3); }
+.intersection-dot.claimed.player-5 { background: #2f6b3d; }
+.intersection-dot.claimed.player-6 { background: #7b2cbf; }
+
+.intersection-dot.blocked {
+	background: rgba(0, 0, 0, 0.2);
+	border: 1.5px dashed rgba(0, 0, 0, 0.4);
+	box-shadow: none;
+	width: 14px;
+	height: 14px;
+	opacity: 0.55;
+	pointer-events: none;
+}
+
+
+.start-assistant-controls {
+	border-top: 1px solid var(--ring);
+	padding-top: 0.65rem;
+	margin-top: 0.35rem;
+}
+
 @media (max-width: 740px) {
 	:root {
 		--hex-w: 82px;
@@ -368,5 +499,17 @@ button:active {
 
 	.harbor-label {
 		font-size: 0.72rem;
+	}
+
+	.intersection-dot {
+		width: 16px;
+		height: 16px;
+		font-size: 0.55rem;
+	}
+	
+	.intersection-dot.recommended {
+		width: 18px;
+		height: 18px;
+		font-size: 0.62rem;
 	}
 }

@@ -4,6 +4,7 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Catan Board Randomizer</title>
+	<link rel="icon" type="image/png" href="favicon.png">
 	<link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -25,7 +26,22 @@
 				<button id="randomizeBoard" type="button">Randomize Full Board</button>
 				<button id="tokensOnly" type="button">Reshuffle Numbers Only</button>
 				<button id="detectFromImage" type="button">Detect Code From Image</button>
+				<button id="swapResources" type="button" class="swap-btn">Swap Resources</button>
+				<button id="swapTokens" type="button" class="swap-btn">Swap Numbers</button>
+				<button id="swapPorts" type="button" class="swap-btn">Swap Ports</button>
 				<input id="boardImageInput" type="file" accept="image/*" hidden>
+			</div>
+			<div class="controls start-assistant-controls">
+				<label for="playerSeat">Your Position:</label>
+				<select id="playerSeat" aria-label="Select your turn order">
+					<option value="1">Player 1 (picks 1st & 8th)</option>
+					<option value="2">Player 2 (picks 2nd & 7th)</option>
+					<option value="3">Player 3 (picks 3rd & 6th)</option>
+					<option value="4">Player 4 (picks 4th & 5th)</option>
+				</select>
+				<button id="startDraftBtn" class="primary" type="button">Start Placement Draft</button>
+				<button id="undoDraftBtn" type="button" disabled>Undo Last Placement</button>
+				<button id="resetDraftBtn" type="button" disabled>Reset Draft</button>
 			</div>
 			<div id="status" role="status" aria-live="polite"></div>
 			<section id="importReview" class="import-review" hidden aria-live="polite">
@@ -34,6 +50,13 @@
 					<span id="importReviewSummary"></span>
 				</div>
 				<div id="importReviewList" class="import-review-list"></div>
+			</section>
+			<section id="recommendationsPanel" class="import-review" hidden aria-live="polite">
+				<div class="import-review-header">
+					<strong id="draftStatusTitle">Draft Status</strong>
+					<span id="recommendationsSummary"></span>
+				</div>
+				<div id="recommendationsList" class="import-review-list"></div>
 			</section>
 		</section>
 
@@ -48,7 +71,15 @@
 		</section>
 	</main>
 
+	<script>
+		var Module = {
+			onRuntimeInitialized: function() {
+				window.cvLoaded = true;
+			}
+		};
+	</script>
 	<script src="app.js" defer></script>
-	<script src="image-detect.js" defer></script>
+	<script async src="https://docs.opencv.org/4.8.0/opencv.js" onerror="window.cvError = true;"></script>
+	<script type="module" src="src/import/main.js"></script>
 </body>
 </html>
