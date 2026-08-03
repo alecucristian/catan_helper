@@ -1,3 +1,4 @@
+// test
 const MODES = {
 	four: {
 		name: "4 Player Base",
