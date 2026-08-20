@@ -256,6 +256,9 @@ export function initImportUI() {
       }
 
       renderFinalReview(state, refs);
+      if (typeof window.openPipPhoto === "function" && state.centersOverlayUrl) {
+        window.openPipPhoto(state.centersOverlayUrl);
+      }
       setStatus(statusEl, "Board imported successfully from image!", false);
     } catch (error) {
       clearReview(reviewPanel, reviewSummaryEl, reviewListEl);

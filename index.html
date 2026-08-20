@@ -63,6 +63,10 @@
 						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
 						<span>Scan Board Photo</span>
 					</button>
+					<button id="togglePipPhotoBtn" class="btn btn-secondary hidden" type="button" title="View floating photo reference">
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+						<span>Photo Reference</span>
+					</button>
 					<input id="boardImageInput" type="file" accept="image/*" hidden>
 				</div>
 			</section>
@@ -118,7 +122,7 @@
 						<div class="panel-card">
 							<div class="panel-header">
 								<h3>Manual Board Modification</h3>
-								<p>Select a mode below, then click any two items on the board to swap them.</p>
+								<p>Select a mode below, then click any two items on the board to swap them. Or tap any hex directly to edit it.</p>
 							</div>
 
 							<div class="swap-actions-grid">
@@ -177,6 +181,60 @@
 				</div>
 			</aside>
 		</main>
+	</div>
+
+	<!-- Floating Picture-in-Picture Photo Reference Overlay Widget -->
+	<div id="pipPhotoModal" class="pip-photo-widget hidden">
+		<div class="pip-header">
+			<span class="pip-title">📷 Photo Reference</span>
+			<div class="pip-controls">
+				<button id="pipMinimizeBtn" class="pip-btn" type="button" title="Minimize/Expand">_</button>
+				<button id="pipCloseBtn" class="pip-btn" type="button" title="Close">✕</button>
+			</div>
+		</div>
+		<div class="pip-body">
+			<img id="pipPhotoImg" src="" alt="Detected Board Photo Reference">
+		</div>
+	</div>
+
+	<!-- Quick Edit Hex Popover Modal -->
+	<div id="hexEditModal" class="modal-backdrop hidden">
+		<div class="modal-card">
+			<div class="modal-header">
+				<h3 id="hexEditTitle">Edit Tile</h3>
+				<button id="hexEditCloseBtn" class="modal-close-btn" type="button">✕</button>
+			</div>
+			<div class="modal-body">
+				<div class="edit-section">
+					<label class="edit-label">Terrain Resource:</label>
+					<div class="resource-picker-grid">
+						<button class="res-btn wood" data-res="wood" type="button">🌲 Wood</button>
+						<button class="res-btn brick" data-res="brick" type="button">🧱 Brick</button>
+						<button class="res-btn sheep" data-res="sheep" type="button">🐑 Sheep</button>
+						<button class="res-btn wheat" data-res="wheat" type="button">🌾 Wheat</button>
+						<button class="res-btn ore" data-res="ore" type="button">⛰️ Ore</button>
+						<button class="res-btn desert" data-res="desert" type="button">🏜️ Desert</button>
+					</div>
+				</div>
+
+				<div class="edit-section">
+					<label class="edit-label">Number Token:</label>
+					<div class="token-picker-grid">
+						<button class="token-btn" data-token="2" type="button">2</button>
+						<button class="token-btn" data-token="3" type="button">3</button>
+						<button class="token-btn" data-token="4" type="button">4</button>
+						<button class="token-btn" data-token="5" type="button">5</button>
+						<button class="token-btn red" data-token="6" type="button">6</button>
+						<button class="token-btn red" data-token="8" type="button">8</button>
+						<button class="token-btn" data-token="9" type="button">9</button>
+						<button class="token-btn" data-token="10" type="button">10</button>
+						<button class="token-btn" data-token="11" type="button">11</button>
+						<button class="token-btn" data-token="12" type="button">12</button>
+						<button class="token-btn none" data-token="null" type="button">None</button>
+					</div>
+				</div>
+			</div>
+		</div>
 	</div>
 
 	<script src="app.js" defer></script>

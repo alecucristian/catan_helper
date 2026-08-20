@@ -874,10 +874,15 @@ function generateFromBoardCode(modeKey, codeText) {
 }
 
 function renderBoard() {
+	window.appState = state;
+	window.updateBoardAndCode = function() {
+		codeEl.value = boardCodeFromTiles(state.tiles, state.spiral, state.ports);
+		renderBoard();
+	};
 	const mode = MODES[state.modeKey];
 	const geometry = tileGeometry(mode.rows, state.tiles);
 	const centers = geometry.centers;
-	const seaPadding = Math.round(geometry.hexW * 0.55);
+	const seaPadding = Math.round(geometry.hexW * 0.85);
 	const boardWidth = geometry.width + seaPadding * 2;
 	const boardHeight = geometry.height + seaPadding * 2;
 
@@ -986,6 +991,13 @@ function renderBoard() {
 					swapSelectedTileId = null;
 					codeEl.value = boardCodeFromTiles(state.tiles, state.spiral, state.ports);
 					renderBoard();
+				}
+			});
+		} else if (!draftActive) {
+			el.style.cursor = "pointer";
+			el.addEventListener("click", () => {
+				if (typeof window.openHexEditModal === "function") {
+					window.openHexEditModal(tile.id);
 				}
 			});
 		}
@@ -1683,7 +1695,7 @@ function renderDraftOverlay() {
 	const geometry = tileGeometry(mode.rows, state.tiles);
 	const H = geometry.hexH;
 	const W = geometry.hexW;
-	const seaPadding = Math.round(W * 0.55);
+	const seaPadding = Math.round(W * 0.85);
 
 	recalculateBlockedIntersections(allInters, H);
 
