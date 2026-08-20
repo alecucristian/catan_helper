@@ -1,8 +1,5 @@
 {
-  "type": "module",
-  "dependencies": {
-    "canvas": "^3.2.3",
-    "puppeteer": "^25.3.0",
-    "tesseract.js": "^7.0.0"
-  }
+  "name": "catan_helper",
+  "version": "1.0.0",
+  "type": "module"
 }

@@ -1,11 +1,6 @@
 import { createImportState } from "./state-model.js";
-import { detectCenters } from "./stage-centers.js";
-import { detectTiles } from "./stage-tiles.js";
-import { detectTokens } from "./stage-tokens.js";
-import { detectHarbors } from "./stage-harbors.js";
-import { CENTER_QUALITY_THRESHOLDS, RESOURCE_LABELS } from "./constants.js";
+import { DETECTION_SERVICE_URL } from "./constants.js";
 import { loadImage } from "./canvas-utils.js";
-
 
 function getElements() {
   return {
@@ -129,143 +124,6 @@ function renderCentersPreview(state, reviewPanel, reviewListEl) {
   reviewListEl.parentNode.insertBefore(block, reviewListEl);
 }
 
-function summarizeCenterQuality(quality) {
-  if (quality.overall >= CENTER_QUALITY_THRESHOLDS.residualGood) {
-    return "high confidence";
-  }
-  if (quality.overall >= CENTER_QUALITY_THRESHOLDS.residualWarn) {
-    return "medium confidence";
-  }
-  return "low confidence";
-}
-
-function renderCenterReview(state, refs) {
-  const { reviewPanel, reviewSummaryEl, reviewListEl } = refs;
-  if (!reviewPanel || !reviewSummaryEl || !reviewListEl) {
-    return;
-  }
-  reviewPanel.hidden = false;
-  reviewListEl.innerHTML = "";
-
-  const qualityLabel = summarizeCenterQuality(state.quality);
-  reviewSummaryEl.textContent =
-    "Center stage complete. " + state.centers.length + " hex centers detected with " + qualityLabel + ".";
-
-  const rows = [
-    ["Stage", "Centers only (tiles/tokens/harbors not run yet)"],
-    ["Mode", state.modeKey],
-    ["Hex centers", String(state.centers.length)],
-    ["Frame slots", String(state.frameSlots.length)],
-    ["Marker refinement", state.quality.refineApplied ? "applied" : "not applied"],
-    ["Token-like markers", String(state.quality.markersFound)],
-    ["Marker inlier ratio", (state.quality.inlierRatio * 100).toFixed(1) + "%"],
-    ["Center residual", state.quality.meanResidualPx.toFixed(2) + " px"],
-    ["Board area ratio", state.quality.areaRatio.toFixed(3)],
-    ["Center quality", state.quality.overall.toFixed(3)]
-  ];
-
-  for (let i = 0; i < rows.length; i += 1) {
-    const row = document.createElement("div");
-    row.className = "import-review-item";
-
-    const label = document.createElement("span");
-    label.className = "import-review-label";
-    label.textContent = rows[i][0];
-
-    const value = document.createElement("span");
-    value.className = "import-review-meta";
-    value.textContent = rows[i][1];
-
-    row.append(label, value);
-    reviewListEl.appendChild(row);
-  }
-
-  const note = document.createElement("p");
-  note.className = "import-review-empty";
-  note.textContent = "Next phases will add tile, token, and harbor detection on top of this center map.";
-  reviewListEl.appendChild(note);
-
-  renderCentersPreview(state, reviewPanel, reviewListEl);
-}
-
-function renderTileReview(state, refs) {
-  const { reviewPanel, reviewSummaryEl, reviewListEl } = refs;
-  if (!reviewPanel || !reviewSummaryEl || !reviewListEl) {
-    return;
-  }
-
-  reviewPanel.hidden = false;
-  reviewListEl.innerHTML = "";
-
-  const low = state.tileQuality.lowConfidenceCount;
-  const avg = state.tileQuality.averageConfidence;
-  const tileCount = state.tiles.length;
-  reviewSummaryEl.textContent =
-    "Tile stage complete. " + low + " low-confidence tile(s), average confidence " + avg.toFixed(3) + ".";
-
-  const overviewRows = [
-    ["Stage", "Centers + tile resources"],
-    ["Mode", state.modeKey],
-    ["Hex centers", String(state.centers.length)],
-    ["Marker refinement", state.quality.refineApplied ? "applied" : "not applied"],
-    ["Marker inlier ratio", (state.quality.inlierRatio * 100).toFixed(1) + "%"],
-    ["Center residual", state.quality.meanResidualPx.toFixed(2) + " px"],
-    ["Tile predictions", String(tileCount)],
-    ["Low-confidence tiles", String(low)],
-    ["Average confidence", avg.toFixed(3)],
-    ["Average color importance", (state.tileQuality.averageColorImportance * 100).toFixed(1) + "%"]
-  ];
-
-  for (let i = 0; i < overviewRows.length; i += 1) {
-    const row = document.createElement("div");
-    row.className = "import-review-item";
-
-    const label = document.createElement("span");
-    label.className = "import-review-label";
-    label.textContent = overviewRows[i][0];
-
-    const value = document.createElement("span");
-    value.className = "import-review-meta";
-    value.textContent = overviewRows[i][1];
-
-    row.append(label, value);
-    reviewListEl.appendChild(row);
-  }
-
-  const sorted = [...state.tiles].sort((a, b) => a.tileId - b.tileId);
-  for (let i = 0; i < sorted.length; i += 1) {
-    const tile = sorted[i];
-    const row = document.createElement("div");
-    row.className = "import-review-item";
-
-    const label = document.createElement("span");
-    label.className = "import-review-label";
-    label.textContent =
-      "Tile " + (tile.tileId + 1) + " (r" + tile.row + ", c" + tile.col + ")";
-
-    const altText = tile.alternatives
-      .map((alt) => RESOURCE_LABELS[alt.resource] + " " + alt.score.toFixed(2))
-      .join(" / ");
-
-    const value = document.createElement("span");
-    value.className = "import-review-meta";
-    const colorPct = Math.round((tile.colorImportance || 0) * 100);
-    const iconPct = 100 - colorPct;
-    value.textContent = RESOURCE_LABELS[tile.resource] + " (" + tile.confidence.toFixed(2) + ") - " + altText;
-    value.textContent += " - color " + colorPct + "% / icon " + iconPct + "%";
-
-    row.append(label, value);
-    reviewListEl.appendChild(row);
-  }
-
-  const note = document.createElement("p");
-  note.className = "import-review-empty";
-  note.textContent = "Next phase will add number token detection on top of these tile assignments.";
-  reviewListEl.appendChild(note);
-
-  renderCentersPreview(state, reviewPanel, reviewListEl);
-}
-
 function renderFinalReview(state, refs) {
   const { reviewPanel, reviewSummaryEl, reviewListEl } = refs;
   if (!reviewPanel || !reviewSummaryEl || !reviewListEl) {
@@ -274,9 +132,8 @@ function renderFinalReview(state, refs) {
   reviewPanel.hidden = false;
   reviewListEl.innerHTML = "";
 
-  const low = state.tileQuality.lowConfidenceCount;
-  const avg = state.tileQuality.averageConfidence;
-  const tileCount = state.tiles.length;
+  const low = state.tileQuality ? state.tileQuality.lowConfidenceCount : 0;
+  const avg = state.tileQuality ? state.tileQuality.averageConfidence : 1.0;
   reviewSummaryEl.textContent =
     "Import complete! " + low + " low-confidence tile(s), average confidence " + avg.toFixed(3) + ".";
 
@@ -313,7 +170,6 @@ function renderFinalReview(state, refs) {
   renderCentersPreview(state, reviewPanel, reviewListEl);
 }
 
-
 export function initImportUI() {
   const refs = getElements();
   const { detectBtn, imageInput, modeEl, statusEl, reviewPanel, reviewSummaryEl, reviewListEl } = refs;
@@ -335,72 +191,50 @@ export function initImportUI() {
     }
 
     clearReview(reviewPanel, reviewSummaryEl, reviewListEl);
-    setStatus(statusEl, "Waiting for computer vision module to load...", false);
+    setStatus(statusEl, "Processing image using Python microservice...", false);
     detectBtn.disabled = true;
-
-    // Wait for OpenCV.js to load
-    if (!window.cvLoaded) {
-      if (window.cvError) {
-        setStatus(statusEl, "Failed to load computer vision module (OpenCV). Please check your connection.", true);
-        detectBtn.disabled = false;
-        return;
-      }
-      try {
-        await new Promise((resolve, reject) => {
-          let attempts = 0;
-          const interval = setInterval(() => {
-            if (window.cvLoaded) {
-              clearInterval(interval);
-              resolve();
-            } else if (window.cvError || attempts > 100) {
-              clearInterval(interval);
-              reject(new Error("OpenCV load timeout or error"));
-            }
-            attempts++;
-          }, 100);
-        });
-      } catch (err) {
-        setStatus(statusEl, "Failed to initialize computer vision module.", true);
-        detectBtn.disabled = false;
-        return;
-      }
-    }
-
-    setStatus(statusEl, "Phase 1: detecting board bounds and hex centers...", false);
 
     try {
       const modeKey = modeEl.value === "six" ? "six" : "four";
       state = createImportState(modeKey);
+      
       const image = await loadImage(file);
-      const centers = await detectCenters(image, modeKey);
-      state.centers = centers.centers;
-      state.frameSlots = centers.frameSlots;
-      state.bounds = centers.bounds;
-      state.quality = centers.quality;
-      state.centersOverlayUrl = buildCenterOverlayDataUrl(centers);
-      state.stage = "centers";
-      state.needsReview = true;
+      
+      const formData = new FormData();
+      formData.append("image", file);
+      formData.append("mode", modeKey);
 
-      renderCenterReview(state, refs);
-      setStatus(statusEl, "Phase 2: classifying tile resources...", false);
+      const serviceUrl = (window.appConfig && window.appConfig.DETECTION_SERVICE_URL) || window.DETECTION_SERVICE_URL || DETECTION_SERVICE_URL;
+      const response = await fetch(serviceUrl, {
+        method: "POST",
+        body: formData
+      });
 
-      const tiles = await detectTiles(centers);
-      state.tiles = tiles.tiles;
-      state.tileQuality = tiles.quality;
-      state.stage = "tiles";
+      if (!response.ok) {
+        let errMsg = "Board detection failed.";
+        try {
+          const errData = await response.json();
+          errMsg = errData.detail || errMsg;
+        } catch (e) {}
+        throw new Error(errMsg);
+      }
 
-      renderTileReview(state, refs);
-      setStatus(statusEl, "Phase 3: detecting number tokens...", false);
+      const result = await response.json();
 
-      const tokenResult = await detectTokens(centers, tiles);
-      state.tiles = tokenResult.tiles;
-      state.stage = "tokens";
-
-      setStatus(statusEl, "Phase 4: detecting harbor configurations...", false);
-
-      const harborResult = await detectHarbors(centers);
-      state.ports = harborResult.ports;
+      state.centers = result.centers;
+      state.frameSlots = result.frameSlots;
+      state.bounds = {
+        source: image,
+        original: result.bounds.original,
+        normalized: result.bounds.normalized
+      };
+      state.quality = result.quality;
+      state.centersOverlayUrl = buildCenterOverlayDataUrl(state);
+      state.tiles = result.tiles;
+      state.tileQuality = result.tileQuality;
+      state.ports = result.ports;
       state.stage = "harbors";
+      state.needsReview = true;
 
       const mappedTiles = state.tiles.map((t) => ({
         id: t.tileId,
@@ -410,7 +244,7 @@ export function initImportUI() {
 
       const codeFunc = window.boardCodeFromTiles || (window.app && window.app.boardCodeFromTiles);
       if (codeFunc) {
-        const code = codeFunc(mappedTiles, centers.spiralOrder, state.ports);
+        const code = codeFunc(mappedTiles, result.spiralOrder, state.ports);
         const codeEl = document.getElementById("boardCode");
         if (codeEl) {
           codeEl.value = code;
@@ -425,7 +259,7 @@ export function initImportUI() {
       setStatus(statusEl, "Board imported successfully from image!", false);
     } catch (error) {
       clearReview(reviewPanel, reviewSummaryEl, reviewListEl);
-      setStatus(statusEl, (error && error.message) || "Center detection failed.", true);
+      setStatus(statusEl, (error && error.message) || "Detection failed.", true);
     } finally {
       detectBtn.disabled = false;
     }

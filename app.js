@@ -877,7 +877,7 @@ function renderBoard() {
 	const mode = MODES[state.modeKey];
 	const geometry = tileGeometry(mode.rows, state.tiles);
 	const centers = geometry.centers;
-	const seaPadding = Math.round(geometry.hexW * 0.95);
+	const seaPadding = Math.round(geometry.hexW * 0.55);
 	const boardWidth = geometry.width + seaPadding * 2;
 	const boardHeight = geometry.height + seaPadding * 2;
 
@@ -1683,7 +1683,7 @@ function renderDraftOverlay() {
 	const geometry = tileGeometry(mode.rows, state.tiles);
 	const H = geometry.hexH;
 	const W = geometry.hexW;
-	const seaPadding = Math.round(W * 0.95);
+	const seaPadding = Math.round(W * 0.55);
 
 	recalculateBlockedIntersections(allInters, H);
 

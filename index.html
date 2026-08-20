@@ -3,83 +3,183 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Catan Board Randomizer</title>
+	<title>Catan Board Randomizer & Assistant</title>
 	<link rel="icon" type="image/png" href="favicon.png">
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 	<link rel="stylesheet" href="style.css">
 </head>
 <body>
-	<main class="app" aria-label="Catan randomizer application">
-		<section class="top">
-			<h1 class="title">Catan Board Randomizer</h1>
-			<div class="control-group">
-				<label class="code-label" for="boardCode">Board code</label>
-				<input id="boardCode" type="text" placeholder="O6 S4 W10 ..." autocomplete="off" spellcheck="false" aria-describedby="boardCodeHelp">
-				<div id="boardCodeHelp" class="code-help">Enter tiles in spiral order. Add harbors after P using only letters/numbers, e.g. P1T3W5O.</div>
-			</div>
-			<div class="controls">
-				<label for="mode">Board mode:</label>
-				<select id="mode" aria-label="Select board mode">
-					<option value="four">4 Player (Base)</option>
-					<option value="six">6 Player Expansion</option>
-				</select>
-				<button id="generateBoard" class="primary" type="button">Generate Board</button>
-				<button id="randomizeBoard" type="button">Randomize Full Board</button>
-				<button id="tokensOnly" type="button">Reshuffle Numbers Only</button>
-				<button id="detectFromImage" type="button">Detect Code From Image</button>
-				<button id="swapResources" type="button" class="swap-btn">Swap Resources</button>
-				<button id="swapTokens" type="button" class="swap-btn">Swap Numbers</button>
-				<button id="swapPorts" type="button" class="swap-btn">Swap Ports</button>
-				<input id="boardImageInput" type="file" accept="image/*" hidden>
-			</div>
-			<div class="controls start-assistant-controls">
-				<label for="playerSeat">Your Position:</label>
-				<select id="playerSeat" aria-label="Select your turn order">
-					<option value="1">Player 1 (picks 1st & 8th)</option>
-					<option value="2">Player 2 (picks 2nd & 7th)</option>
-					<option value="3">Player 3 (picks 3rd & 6th)</option>
-					<option value="4">Player 4 (picks 4th & 5th)</option>
-				</select>
-				<button id="startDraftBtn" class="primary" type="button">Start Placement Draft</button>
-				<button id="undoDraftBtn" type="button" disabled>Undo Last Placement</button>
-				<button id="resetDraftBtn" type="button" disabled>Reset Draft</button>
-			</div>
-			<div id="status" role="status" aria-live="polite"></div>
-			<section id="importReview" class="import-review" hidden aria-live="polite">
-				<div class="import-review-header">
-					<strong>Image import review</strong>
-					<span id="importReviewSummary"></span>
+	<div class="app-container">
+		<!-- Professional Header -->
+		<header class="app-header">
+			<div class="header-left">
+				<div class="logo">
+					<span class="logo-icon">🎲</span>
+					<div class="logo-text">
+						<h1 class="logo-title">Catan Helper</h1>
+						<span class="logo-subtitle">Board Generator & AI Assistant</span>
+					</div>
 				</div>
-				<div id="importReviewList" class="import-review-list"></div>
-			</section>
-			<section id="recommendationsPanel" class="import-review" hidden aria-live="polite">
-				<div class="import-review-header">
-					<strong id="draftStatusTitle">Draft Status</strong>
-					<span id="recommendationsSummary"></span>
+			</div>
+
+			<div class="header-right">
+				<div class="mode-wrap">
+					<select id="mode" class="mode-select" aria-label="Select board mode">
+						<option value="four">4 Player Base</option>
+						<option value="six">6 Player Expansion</option>
+					</select>
 				</div>
-				<div id="recommendationsList" class="import-review-list"></div>
+				<button id="randomizeBoard" class="btn btn-primary" type="button">
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 8h.01"/><path d="M8 8h.01"/><path d="M12 12h.01"/><path d="M16 16h.01"/><path d="M8 16h.01"/></svg>
+					<span>Randomize Board</span>
+				</button>
+			</div>
+		</header>
+
+		<!-- Main Workspace Layout -->
+		<main class="app-workspace">
+			<!-- Board Display Section (Always Visible & Central) -->
+			<section class="board-section">
+				<div id="status" class="status-message" role="status" aria-live="polite"></div>
+
+				<div class="board-viewport" id="boardViewport">
+					<div class="board-scaler" id="boardScaler">
+						<div class="board-wrap" id="boardWrap">
+							<div id="board" aria-label="Generated Catan Board"></div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Quick Actions Bar Directly Below Board -->
+				<div class="quick-toolbar">
+					<button id="tokensOnly" class="btn btn-secondary" type="button">
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6"/><path d="M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+						<span>Reshuffle Numbers Only</span>
+					</button>
+
+					<button id="detectFromImage" class="btn btn-secondary" type="button">
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+						<span>Scan Board Photo</span>
+					</button>
+					<input id="boardImageInput" type="file" accept="image/*" hidden>
+				</div>
 			</section>
-		</section>
 
-		<section class="board-wrap">
-			<div id="board" aria-label="Generated catan board"></div>
-		</section>
+			<!-- Interactive Tools & Assistant Section -->
+			<aside class="tools-section">
+				<!-- Segmented Tool Switcher -->
+				<div class="tool-tabs" role="tablist">
+					<button class="tool-tab active" data-panel="draft" type="button">🎯 Draft Assistant</button>
+					<button class="tool-tab" data-panel="swap" type="button">⚡ Manual Swap</button>
+					<button class="tool-tab" data-panel="code" type="button">📝 Board Code</button>
+				</div>
 
-		<section class="legend">
-			<span>Code format: tile tokens in spiral order, then harbor tokens after <strong>P</strong>.</span>
-			<span>Harbor token format: <strong>slot + type</strong> (letters/numbers only). Example: <strong>P1T3W5O</strong>.</span>
-			<span>Harbor types: <strong>T</strong>=3:1, <strong>W</strong>=wood, <strong>B</strong>=brick, <strong>S</strong>=sheep, <strong>G</strong>=wheat, <strong>O</strong>=ore.</span>
-		</section>
-	</main>
+				<div class="panels-container">
+					<!-- PANEL 1: PLACEMENT DRAFT ASSISTANT -->
+					<div id="panel-draft" class="tool-panel active">
+						<div class="panel-card">
+							<div class="panel-header">
+								<h3>Placement Draft Assistant</h3>
+								<p>Calculates optimal settlement locations evaluating pip density, resource variance, and port accessibility.</p>
+							</div>
 
-	<script>
-		var Module = {
-			onRuntimeInitialized: function() {
-				window.cvLoaded = true;
-			}
-		};
-	</script>
+							<div class="draft-controls">
+								<div class="form-group">
+									<label for="playerSeat">Your Position:</label>
+									<select id="playerSeat" class="form-select">
+										<option value="1">Player 1 (picks 1st & 8th)</option>
+										<option value="2">Player 2 (picks 2nd & 7th)</option>
+										<option value="3">Player 3 (picks 3rd & 6th)</option>
+										<option value="4">Player 4 (picks 4th & 5th)</option>
+									</select>
+								</div>
+
+								<div class="btn-row">
+									<button id="startDraftBtn" class="btn btn-accent" type="button">Start Draft</button>
+									<button id="undoDraftBtn" class="btn btn-outline" type="button" disabled>Undo</button>
+									<button id="resetDraftBtn" class="btn btn-outline" type="button" disabled>Reset</button>
+								</div>
+							</div>
+						</div>
+
+						<div id="recommendationsPanel" class="panel-card review-panel" hidden aria-live="polite">
+							<div class="review-header">
+								<strong id="draftStatusTitle">Draft Status</strong>
+								<span id="recommendationsSummary"></span>
+							</div>
+							<div id="recommendationsList" class="review-list"></div>
+						</div>
+					</div>
+
+					<!-- PANEL 2: MANUAL BOARD MODIFICATION / SWAPPING -->
+					<div id="panel-swap" class="tool-panel">
+						<div class="panel-card">
+							<div class="panel-header">
+								<h3>Manual Board Modification</h3>
+								<p>Select a mode below, then click any two items on the board to swap them.</p>
+							</div>
+
+							<div class="swap-actions-grid">
+								<button id="swapResources" class="swap-btn" type="button">
+									<span class="swap-badge">🌲</span>
+									<div class="swap-info">
+										<strong>Swap Resources</strong>
+										<span>Swap terrain between 2 hexes</span>
+									</div>
+								</button>
+
+								<button id="swapTokens" class="swap-btn" type="button">
+									<span class="swap-badge">🔢</span>
+									<div class="swap-info">
+										<strong>Swap Numbers</strong>
+										<span>Swap number tokens between 2 hexes</span>
+									</div>
+								</button>
+
+								<button id="swapPorts" class="swap-btn" type="button">
+									<span class="swap-badge">⛵</span>
+									<div class="swap-info">
+										<strong>Swap Ports</strong>
+										<span>Swap harbor tokens on sea frame</span>
+									</div>
+								</button>
+							</div>
+						</div>
+					</div>
+
+					<!-- PANEL 3: BOARD CODE STRING -->
+					<div id="panel-code" class="tool-panel">
+						<div class="panel-card">
+							<div class="panel-header">
+								<h3>Board Code String</h3>
+								<p>Enter tiles in spiral order. Add harbor slots after <strong>P</strong> (e.g. <code>P1T3W5O</code>).</p>
+							</div>
+
+							<div class="form-group">
+								<input id="boardCode" type="text" placeholder="O6 S4 W10 P1T3W5O..." autocomplete="off" spellcheck="false" aria-describedby="boardCodeHelp">
+								<div id="boardCodeHelp" class="help-text">Tokens: <strong>W</strong>=wood, <strong>B</strong>=brick, <strong>S</strong>=sheep, <strong>G</strong>=wheat, <strong>O</strong>=ore, <strong>D</strong>=desert.</div>
+							</div>
+
+							<button id="generateBoard" class="btn btn-accent btn-full" type="button">Apply Board Code</button>
+						</div>
+					</div>
+
+					<!-- IMAGE SCAN REVIEW PANEL -->
+					<div id="importReview" class="panel-card review-panel" hidden aria-live="polite">
+						<div class="review-header">
+							<strong>Photo Import Review</strong>
+							<span id="importReviewSummary"></span>
+						</div>
+						<div id="importReviewList" class="review-list"></div>
+					</div>
+				</div>
+			</aside>
+		</main>
+	</div>
+
 	<script src="app.js" defer></script>
-	<script async src="https://docs.opencv.org/4.8.0/opencv.js" onerror="window.cvError = true;"></script>
 	<script type="module" src="src/import/main.js"></script>
 </body>
 </html>
