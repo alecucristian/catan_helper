@@ -137,11 +137,12 @@ function renderFinalReview(state, refs) {
   reviewSummaryEl.textContent =
     "Import complete! " + low + " low-confidence tile(s), average confidence " + avg.toFixed(3) + ".";
 
+  const detectedHarborsCount = (state.ports && state.ports.length) || (window.appState && window.appState.ports && window.appState.ports.length) || 0;
   const overviewRows = [
     ["Stage", "Full Board Detected"],
     ["Mode", state.modeKey],
-    ["Hex centers", String(state.centers.length)],
-    ["Detected Harbors", String(state.ports.length)],
+    ["Hex centers", String((state.centers && state.centers.length) || 0)],
+    ["Detected Harbors", String(detectedHarborsCount)],
     ["Low-confidence tiles", String(low)],
     ["Average confidence", avg.toFixed(3)]
   ];
@@ -232,19 +233,19 @@ export function initImportUI() {
       state.centersOverlayUrl = buildCenterOverlayDataUrl(state);
       state.tiles = result.tiles;
       state.tileQuality = result.tileQuality;
-      state.ports = result.ports;
+      state.ports = result.ports || [];
       state.stage = "harbors";
       state.needsReview = true;
 
-      const mappedTiles = state.tiles.map((t) => ({
+      const mappedTiles = (state.tiles || []).map((t) => ({
         id: t.tileId,
         resource: t.resource,
         token: t.token
       }));
 
       const codeFunc = window.boardCodeFromTiles || (window.app && window.app.boardCodeFromTiles);
-      if (codeFunc) {
-        const code = codeFunc(mappedTiles, result.spiralOrder, state.ports);
+      const code = result.boardCode || (codeFunc ? codeFunc(mappedTiles, result.spiralOrder, state.ports) : "");
+      if (code) {
         const codeEl = document.getElementById("boardCode");
         if (codeEl) {
           codeEl.value = code;
