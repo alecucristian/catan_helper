@@ -205,7 +205,10 @@ export function initImportUI() {
       formData.append("image", file);
       formData.append("mode", modeKey);
 
-      const serviceUrl = (window.appConfig && window.appConfig.DETECTION_SERVICE_URL) || window.DETECTION_SERVICE_URL || DETECTION_SERVICE_URL;
+      let serviceUrl = (window.appConfig && window.appConfig.DETECTION_SERVICE_URL) || window.DETECTION_SERVICE_URL || DETECTION_SERVICE_URL;
+      if (serviceUrl && !serviceUrl.endsWith("/detect")) {
+        serviceUrl = serviceUrl.replace(/\/+$/, "") + "/detect";
+      }
       const response = await fetch(serviceUrl, {
         method: "POST",
         body: formData
