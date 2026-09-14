@@ -1,4 +1,4 @@
-export const DETECTION_SERVICE_URL = "http://alecumihaieduard.go.ro:8000/detect";
+export const DETECTION_SERVICE_URL = "https://alecucristian.duckdns.org/detect";
 
 export const RESOURCE_OPTIONS = ["wood", "brick", "sheep", "wheat", "ore", "desert"];
 
